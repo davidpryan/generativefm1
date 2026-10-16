@@ -906,6 +906,7 @@ static int project_save_as(uint32_t slot, const char *name)
             return 2;
         }
         memcpy(&proj_slot[slot & 3u], &proj_wire, sizeof proj_wire);
+        gen_store_save(slot & 3u);                      /* GEN's state with it (gen_ui.c) */
         proj_name_get(proj_name, (const uint8_t *)p->name);
         proj_cur = (uint8_t)(slot & 3u);
         pat_from_set((slot & 3u) + 1u);
@@ -914,6 +915,7 @@ static int project_save_as(uint32_t slot, const char *name)
     }
 #endif
     memcpy(&proj_slot[slot & 3u], &proj_wire, sizeof proj_wire);
+    gen_store_save(slot & 3u);                          /* GEN's state with it (gen_ui.c; RAM here) */
     proj_name_get(proj_name, (const uint8_t *)p->name);
     proj_cur = (uint8_t)(slot & 3u);
     pat_from_set((slot & 3u) + 1u);
@@ -1139,6 +1141,7 @@ static void project_load(uint32_t slot)
     if (!project_restore_runtime(&proj_scratch)) {
         proj_cur = (uint8_t)(slot & 3u);
         pat_from_set((slot & 3u) + 1u);
+        gen_store_load(slot & 3u);                      /* GEN's state of the slot (gen_ui.c) */
     }
 }
 

@@ -43,7 +43,8 @@ static int settings_import(persist_t *p, int n)
     }
     if (old1 || old2) p->bold = 0;
     if (!current) memset(&p->favorites, 0, sizeof p->favorites);
-    if (p->favorites.factory[15][29] > 1u)        /* STYLE (ui.c ui_style): 2, the retired PIXEL = LINE; unknown = FLAT */
+    /* STYLE (ui.c ui_style): 2, the retired PIXEL = LINE; 3 RISO (GEN) is kept; unknown = FLAT */
+    if (p->favorites.factory[15][29] > 1u && p->favorites.factory[15][29] != 3u)
         p->favorites.factory[15][29] = p->favorites.factory[15][29] == 2u ? 1u : 0u;
     {   /* CLICK, CLICK LEVEL, COUNT-IN (ui.c ui_rec_prefs): two bits each, 3 is no value: the default (0) */
         uint32_t b = p->favorites.factory[15][28], f;

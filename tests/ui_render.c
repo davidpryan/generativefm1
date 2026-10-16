@@ -772,7 +772,8 @@ enum { S_HOME, S_HOME_IDLE, S_MESSAGE, S_MESSAGE_KEY, S_MESSAGE_NOFILE, S_PRESET
        S_DETAIL, S_DETAIL_PLAYING, S_DETAIL_REST, S_DETAIL_DRUM, S_ROLL_MARKS, S_DRUM_MARKS, S_HELP_DETAIL,
        S_DETAIL_COND, S_DETAIL_FILL, S_AUTO_COND, S_GLO_FILL, S_SEQ_EUCLID, S_SEQ_EUCLID_DRUM, S_SEQ_EUCLID_64,
        S_MENU_SELECT, S_PROJECT_ERASE, S_CONFIRM_ERASE_PROJ, S_TOOLS_CLEAN, S_CONFIRM_CLEAN,
-       S_MENU_MIDI_TRACK, S_MENU_MIDI_TCH_UNUSED, S_MENU_MIDI_AUTO, S_HOME_TRACKS_MIDI, S_MIXER_MIDI, S_EDIT_PHASE_FOLD, S_COUNT };
+       S_MENU_MIDI_TRACK, S_MENU_MIDI_TCH_UNUSED, S_MENU_MIDI_AUTO, S_HOME_TRACKS_MIDI, S_MIXER_MIDI, S_EDIT_PHASE_FOLD,
+       S_GEN_LAYER_DRUMS, S_GEN_LAYER_LEAD, S_GEN_LAYER_LOCKED, S_GEN_CONFIRM_SONG, S_GEN_PAGE1, S_GEN_PAGE2, S_GEN_HARMONY, S_GEN_COMMIT, S_GEN_PAGE3, S_GEN_SONG, S_GEN_MSG, S_GEN_M_TURING, S_GEN_M_MARKOV, S_GEN_M_CHAOS, S_GEN_M_CA, S_GEN_M_STYLE, S_GEN_M_LSYS, S_COUNT };
 static const char *const S_NAME[S_COUNT] = {"home", "home_idle", "message", "message_key", "message_nofile", "presets", "presets_nofav", "user",
     "phrases", "project", "tools", "song_empty", "song", "step", "auto_steps", "auto_add_chance", "automation", "drum",
     "drum_hand", "drum_cym", "mixer", "mixer_from_home", "mixer_pan", "env", "env_dest", "lfo", "mod", "fx", "slicer", "dly", "scl", "chord", "chord_wide", "chord_off", "chord_kit", "arp",
@@ -803,7 +804,8 @@ static const char *const S_NAME[S_COUNT] = {"home", "home_idle", "message", "mes
     "detail_cond", "detail_fill", "auto_cond", "layer_glo_fill", "layer_seq_euclid", "layer_seq_euclid_drum",
     "layer_seq_euclid_64",
     "menu_select", "project_erase", "confirm_erase_project", "tools_clean", "confirm_clean",
-    "menu_midi_track", "menu_midi_channels_unused", "menu_midi_auto_select", "home_tracks_midi", "mixer_midi", "edit_phase_fold"};
+    "menu_midi_track", "menu_midi_channels_unused", "menu_midi_auto_select", "home_tracks_midi", "mixer_midi", "edit_phase_fold",
+    "gen_layer_drums", "gen_layer_lead", "gen_layer_locked", "gen_confirm_song", "gen_page1", "gen_page2", "gen_harmony", "gen_commit", "gen_page3", "gen_song", "gen_msg", "gen_m_turing", "gen_m_markov", "gen_m_chaos", "gen_m_ca", "gen_m_style", "gen_m_lsys"};
 
 /* the STEP page's piano roll (ui_graph.c graph_roll) on track 1, stopped unless said: an empty pattern; ACID in
  * A minor; POLY chords (Am7 F C G, tied); a line with ties, slides and accents in C major; LEN 32 on its second
@@ -1523,6 +1525,27 @@ static void setup(int s)
     case S_GLO_FILL: go_home(); ui.layer = LAYER_GLO; seq_fill = 1; break;
     /* 1.5.5 (#186): SEQ TOOLS' EUCLID open: 5 / 16 turned by 2 on ACID (HELP ON); 3 / 8 on the DRUM beat's clap (its
      * repeats faint); 7 / 64 over 64 steps (four rows) */
+    /* GEN (gen_ui.c): the ARP-held layer on a DRUMS track (LIVE on, two lanes locked, section B), on a LEAD track (A
+     * minor, 3 of 16 locks used), locked (every roll dimmed), the SONG dialog, the three pages, and COMMIT's message */
+    case S_GEN_LAYER_DRUMS: drum(0); go_home(); gen_init(); gen_song_seed(0x1234u); gen_target = 1; gen.t[3].role = GR_DRUMS;
+        gen.t[3].flags = GF_LIVE; gen.t[3].lane_lock = 1u | 8u; gen.t[3].hist_len = 2; ui.layer = LAYER_GEN; lys.trk = song.sel; break;
+    case S_GEN_LAYER_LEAD: go_home(); gen_init(); gen_song_seed(0x1234u); song.sel = 3; gen.t[3].role = GR_LEAD; gen.t[3].locks_used = 3;
+        gen.t[3].hist_len = 1; gen_target = 3; ui.layer = LAYER_GEN; lys.trk = song.sel; break;
+    case S_GEN_LAYER_LOCKED: go_home(); gen_init(); song.sel = 1; gen.t[1].flags = GF_LOCK; gen_target = 0; ui.layer = LAYER_GEN; lys.trk = song.sel; break;
+    case S_GEN_CONFIRM_SONG: go_home(); gen_init(); confirm_open(CF_GEN_SONG, 0); break;
+    case S_GEN_PAGE1: gen_init(); song.sel = 3; gen.t[3].role = GR_LEAD; gen.t[3].morph = 35; gen.t[0].flags |= GF_LIVE; gen.t[1].flags |= GF_LOCK; gen_render_section(GS_DROP); go_title("GEN ROLE"); break;
+    case S_GEN_PAGE2: gen_init(); song.sel = 2; gen_target = 2; gen_render_section(GS_BUILD); go_title("GEN SHAPE"); break;
+    case S_GEN_HARMONY: gen_init(); gen.p.prog = 4; gen.p.rate = 1; go_title("HARMONY"); break;
+    case S_GEN_PAGE3: drum(0); gen_init(); gen.t[3].role = GR_DRUMS; gen.t[3].method = GMD_EUCLID; gen.t[3].mp[0] = 60; song.sel = 3; gen_render_section(GS_DROP); go_title("GEN METHOD"); break;
+    case S_GEN_MSG: go_home(); gen_init(); song.sel = 0; drum(0); gen_render_section(GS_DROP); ui.layer = LAYER_GEN; lys.trk = song.sel; ui_message("SECTION D: ENERGY 100"); break;
+    case S_GEN_M_TURING: drum(0); gen_init(); song.sel = 0; gen.t[0].method = GMD_TURING; gen.t[0].mp[0] = 20; gen_render_section(GS_DROP); go_title("GEN METHOD"); break;
+    case S_GEN_M_MARKOV: gen_init(); song.sel = 3; gen.t[3].method = GML_MARKOV; gen.t[3].mp[0] = 70; gen_render_section(GS_DROP); go_title("GEN METHOD"); break;
+    case S_GEN_M_CHAOS: gen_init(); song.sel = 1; gen.t[1].method = GMB_CHAOS; gen.t[1].mp[0] = 90; gen_render_section(GS_DROP); go_title("GEN METHOD"); break;
+    case S_GEN_M_CA: drum(0); gen_init(); song.sel = 0; gen.t[0].method = GMD_CA; gen.t[0].mp[0] = 30; gen_render_section(GS_DROP); go_title("GEN METHOD"); break;
+    case S_GEN_M_STYLE: drum(0); gen_init(); song.sel = 0; gen.t[0].style = 2; gen_render_section(GS_DROP); go_title("GEN METHOD"); break;
+    case S_GEN_M_LSYS: gen_init(); song.sel = 3; gen.t[3].method = GML_LSYS; gen.t[3].mp[0] = 60; gen_render_section(GS_DROP); go_title("GEN METHOD"); break;
+    case S_GEN_SONG: gen_init(); gen.p.form = GFM_GRAMMAR; gen.p.tail = 2; go_title("GEN FORM"); break;
+    case S_GEN_COMMIT: go_home(); gen_init(); song.sel = 3; gen.t[3].role = GR_LEAD; ui.layer = LAYER_GEN; lys.trk = song.sel; ui_message("LOCKS 3/16"); break;
     case S_SEQ_EUCLID: case S_SEQ_EUCLID_DRUM: case S_SEQ_EUCLID_64:
         if (s == S_SEQ_EUCLID_DRUM) { drum(0); ui.lane = 2; } else roll_scene(S_ROLL_ACID);
         if (s == S_SEQ_EUCLID) ui_prefs2 |= PREF_HELP >> 16;
@@ -2230,7 +2253,7 @@ int main(int argc, char **argv)
     const char *out = argc > 1 ? argv[1] : "build/ui_new";
     char path[600];
     uint32_t p, s;
-    static const char *const SHOW[] = {"GREY", "MONO", "GREEN", "PAPER", "NIGHT"};   /* (NIGHT: #50, to review) */
+    static const char *const SHOW[] = {"GREY", "MONO", "GREEN", "PAPER", "NIGHT", "RISO"};   /* (NIGHT: #50, to review) */
     snprintf(path, sizeof path, "%s/report.txt", out);
     rep = fopen(path, "w");
     if (!rep) { fprintf(stderr, "cannot write %s\n", path); return 1; }
@@ -2308,10 +2331,11 @@ int main(int argc, char **argv)
         }
     {   /* STYLE LINE (gfx.c ST_*): every screen in every palette, linted (GREY: gray, MONO: neutral); GREY MONO NIGHT
          * PAPER as OUTDIR/ppm/<STYLE>_<PALETTE>_<screen>.ppm (ui_render.py: sheet_<STYLE>_<PALETTE>.png) */
-        static const char *const ST_N[2] = {"FLAT", "LINE"}, *const ST_PAL[] = {"GREY", "MONO", "NIGHT", "PAPER"};
+        static const char *const ST_N[4] = {"FLAT", "LINE", "", "RISO"}, *const ST_PAL[] = {"GREY", "MONO", "NIGHT", "PAPER", "RISO"};
         uint32_t st, k, n0 = nfind, nruled = 0;
-        for (st = ST_LINE; st <= ST_LINE; st++)
+        for (st = ST_LINE; st <= ST_RISO; st += ST_RISO - ST_LINE)
             for (p = 0; p < NPALETTES; p++) {
+                if (st == ST_RISO && strcmp(UI_PALETTES[p].name, "RISO")) continue;   /* RISO style: on its own palette (GEN) */
                 for (k = 0; k < sizeof ST_PAL / sizeof ST_PAL[0] && strcmp(UI_PALETTES[p].name, ST_PAL[k]); k++) ;
                 for (s = 0; s < S_COUNT; s++) {
                     char name[64], tag[24];

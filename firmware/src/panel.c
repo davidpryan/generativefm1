@@ -114,6 +114,7 @@ static uint32_t leds_step(uint32_t m, int32_t s)
 }
 
 static void palette_apply(void);               /* (ui.c: the palette in use, CUSTOM or a built-in one) */
+static void style_fresh(void);                 /* (ui.c: GEN's first-start STYLE, RISO; the byte lives in favorites) */
 static void settings_init(void)
 {
     if (settings.magic == SETTINGS_MAGIC_OLD && settings.palette < 20u) {
@@ -122,7 +123,8 @@ static void settings_init(void)
     }
     if (settings.magic != SETTINGS_MAGIC || settings.palette >= NPALETTES) {
         settings.magic = SETTINGS_MAGIC;
-        settings.palette = UI_GREY_INDEX;      /* GREY (default; named MONO before 1.0.2) */
+        settings.palette = UI_RISO_INDEX;      /* GEN: RISO, the full-drum risograph print (Felucca: GREY) */
+        style_fresh();                         /* .. in its ink-outline STYLE */
         settings.lowcut = 0;
         settings.zoom = 0;                     /* (retired: the LEDS setting, settings_persist.c) */
     }

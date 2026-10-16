@@ -1203,6 +1203,7 @@ static uint32_t graph_signature(void)
             h = (h ^ chord_last[song.sel].note[i]) * 16777619u;
         h ^= (uint32_t)t->engine * 389u;             /* (MONO and kits follow the sounding engine) */
     }
+    if (pg->graph == GR_GEN) h = (h ^ graph_gen_sig()) * 16777619u;
     if (pg->graph == GR_SONG) {
         h ^= ui.song_row * 40503u + chain_config.count * 7919u + ui.song_trk * 3571u;
         h = fnv(h, chain_config.row, sizeof chain_config.row);
@@ -2324,6 +2325,10 @@ static void draw_graph(void)
         case GR_EVENTS:
             cv_oy = 0;
             graph_events();
+            break;
+        case GR_GEN:
+            cv_oy = 0;
+            graph_gen(c);
             break;
         case GR_TOOLS:
             cv_oy = 0;

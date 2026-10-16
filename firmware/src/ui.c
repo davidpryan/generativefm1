@@ -129,12 +129,13 @@ static void rp_put(uint32_t f, uint32_t v)
  * 0 in older ones = FLAT; 2, the retired PIXEL (1.0.1), reads as LINE; anything else unknown as FLAT (settings_persist.c). gfx.c draws from its copy, ux.style
  * (ui_draw.c style_apply) */
 #define ui_style (favorites.factory[15][29])
+static void style_fresh(void) { ui_style = ST_RISO; }   /* GEN: a fresh start prints in RISO (panel.c settings_init) */
 static void draw_gaps(uint32_t y, uint32_t h);        /* (ui_draw.c) */
 
 static uint8_t sync_reload;                  /* engine / preset / project / user preset loaded: editor RELOAD push */
 
 #define ACC T_THEME                /* values, curves */
-#define VAL(c) ((c) == ui.hot_col && ui.hot_t ? T_ACCENT : T_THEME)   /* the knob just turned: accent */
+#define VAL(c) ((c) == ui.hot_col && ui.hot_t ? T_ACCENT : ux.style == ST_RISO ? (uint16_t)ux_col_ink(c) : T_THEME)   /* the knob just turned: accent; RISO: the column's ink */
 #define RATIO(d, v) ((d)->max > (d)->min ? ((int32_t)(v) - (d)->min) * 1000 / ((d)->max - (d)->min) : -1)
 /* layout: header 0..24, four cards 28..72 (57 px at x 3 + 59 c),
  * the panel 76..198 (a SURF area; the graphs live in it), footer 202..240; BG between them */
@@ -226,7 +227,8 @@ static struct {
 } ui;
 
 enum { CF_NONE, CF_CLEAR_SEQ, CF_CLEAR_TRK, CF_OVR_PROJ, CF_OVR_USER, CF_LOAD_PAT,
-       CF_DEL_ROW, CF_CLEAR_SONG, CF_INIT_SOUND, CF_CLEAR_MOTION, CF_ERASE_USER, CF_ERASE_PROJ, CF_CLEAN_SOUND };
+       CF_DEL_ROW, CF_CLEAR_SONG, CF_INIT_SOUND, CF_CLEAR_MOTION, CF_ERASE_USER, CF_ERASE_PROJ, CF_CLEAN_SOUND,
+       CF_GEN_SONG };   /* GEN SONG over used slots (gen_ui.c) */
                                   /* ui.confirm: TOOLS' clears; SAVE over a used slot; a pattern over the user's steps;
                                    * USER ERASE; PROJECT ERASE (1.5.5, #199); CLEAN INIT (1.5.5, #190) */
 
@@ -413,7 +415,22 @@ static int32_t ink_w(const aafont_t *f, const char *s)
 }
 
 /* the quick layers (ui_layer.c): a button held, the keys and KNOB 1..4 are its shortcuts, its map over the page */
-enum { LAYER_NONE, LAYER_FX, LAYER_GLO, LAYER_SCL, LAYER_EDIT, LAYER_SEQ, LAYER_REC, LAYER_N };
+enum { LAYER_NONE, LAYER_FX, LAYER_GLO, LAYER_SCL, LAYER_EDIT, LAYER_SEQ, LAYER_REC, LAYER_GEN, LAYER_N };   /* GEN: ARP held (gen_ui.c) */
+/* GEN's panel (gen_ui.c, included after project.c): what the layer, the pages and the dialogs call */
+static void gen_cards(const page_t *pg);
+static void gen_edit(const page_t *pg, uint32_t k, int32_t s);
+static void gen_layer_key(uint32_t k, uint32_t p);
+static void gen_layer_held(uint32_t kb);
+static void gen_layer_map(void);
+static void graph_gen(uint16_t c);
+static uint32_t graph_gen_sig(void);
+static uint32_t gen_layer_sig(void);
+static void gen_commit(void);
+static void gen_song_do(void);
+static void gen_tick(void);
+static void gen_store_save(uint32_t slot);
+static void gen_store_load(uint32_t slot);
+static uint8_t gen_fill_held;                       /* GEN's FILL key held (gen_ui.c) */
 static void draw_layer(void);
 static const char *layer_head(void);
 static int layer_locked(void);

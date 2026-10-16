@@ -717,7 +717,10 @@ static void draw_column(uint32_t c, const char *label, const char *val, const ch
             return;
         }
         cv_begin(COL_W, COL_H, T_BG);
+        ux_pen = ux.style == ST_RISO ? (uint16_t)ux_col_ink(c) : 0;   /* RISO: this card's ink (gfx.c) */
+        ux_pen2 = ux.style == ST_RISO ? (uint16_t)ux_col_ink(c + 1u) : 0;
         cv_rrect(0, 0, COL_W, COL_H, 4, T_SURF, T_BG);
+        ux_pen = ux_pen2 = 0;
     }
     if (label[0] || val[0]) {
         if (!strip && label[0]) {
@@ -1085,6 +1088,10 @@ static void draw_columns(void)
         static const uint8_t icons[] = {ICON_AUTO, ICON_AUTO, ICON_X_SONG, ICON_X_SONG};   /* ROW, SONG: the song's */
         for (c = 0; c < 4u; c++)                       /* (1.5.5: KNOB 2 on past INIT, CLEAN) */
             draw_act_column(c, c == 1u && ui.tl_clean && act_col() == 2u ? "CLEAN" : labels[c], VAL(c), icons[c]);
+        return;
+    }
+    if (cur_page()->scope == SC_GEN) {                 /* GEN's pages (gen_ui.c) */
+        gen_cards(cur_page());
         return;
     }
     if (cur_page()->scope == SC_TRK) {                 /* LEVEL PAN REV MUTE of the selected track */
@@ -1462,6 +1469,14 @@ static void confirm_text(char *a, char *b)
     case CF_CLEAR_SONG:
         str_cpy(a, "CLEAR SONG ORDER?", 24);
         break;
+    case CF_GEN_SONG: {                               /* "WRITE SONG A-D?" / "CLASSIC 20 BARS, OVER A-D" */
+        chain_config_t cc; uint32_t r, bars = 0;
+        if (gen.p.form % GFM_N == GFM_CUSTOM) cc = chain_config; else gen_chain_write(&cc);
+        for (r = 0; r < cc.count; r++) bars += cc.row[r].repeat;
+        str_cpy(a, "WRITE SONG A-D?", 24);
+        str_cpy(b, gen_form_name(gen.p.form), 24); str_cpy(b + str_len(b), ", ", 24 - str_len(b)); fmt_int(b + str_len(b), (int32_t)bars);
+        str_cpy(b + str_len(b), " BARS", 24 - str_len(b));
+        break; }
     case CF_INIT_SOUND:
         str_cpy(a, "INITIALIZE SOUND?", 24);
         break;
@@ -1542,7 +1557,7 @@ static void draw_confirm(void)
 /* the stored STYLE (ui_style: the menu, a settings import, a restore) into gfx.c's copy: the tokens again, all redrawn */
 static void style_apply(void)
 {
-    if (ui_style > ST_LINE)                             /* 2, the retired PIXEL: LINE; unknown: FLAT */
+    if (ui_style > ST_LINE && ui_style != ST_RISO)      /* 2, the retired PIXEL: LINE; unknown: FLAT (3: RISO, GEN) */
         ui_style = ui_style == 2u ? ST_LINE : ST_FLAT;
     if (ux.style != ui_style) {
         ux.style = ui_style;

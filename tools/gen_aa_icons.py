@@ -92,6 +92,16 @@ EXTRA = {
     "x_nofile": "symbol_document_disabled",
     # the MENU's tabs (ui_menu.c, 1.0.5): DISPLAY (CONTROL x_knob, AUDIO x_speaker, 1.2 MIDI midi, SYSTEM x_cog)
     "x_eye": "symbol_eye",
+    # GEN (gen_ui.c, 1.6): the layer's keys, the roles, the methods and the pages' cards
+    "x_dice": "symbol_dice", "x_hit": "symbol_hit", "x_shuffle": "control_arrow_randomize",
+    "x_prev": "control_arrow_backward", "x_next": "control_arrow_forward", "x_unlock": "symbol_lock_open_o",
+    "x_link": "symbol_link", "x_brain": "symbol_intelligence", "x_ladder": "symbol_ladder",
+    "x_cells": "function_filter_cells", "x_pink": "waveform_noise_pink", "x_circle": "symbol_circle",
+    "x_pad": "symbol_pad", "x_lead": "symbol_lead", "x_kick": "symbol_kick", "x_rise": "symbol_rise",
+    "x_books": "symbol_books", "x_end": "control_arrow_end", "x_impulse": "function_impulse",
+    "x_piano": "symbol_piano", "x_warp": "symbol_warp", "x_node": "symbol_node", "x_loop": "control_arrow_loop",
+    "x_weight": "symbol_weight", "x_grid": "symbol_grid", "x_grid9": "symbol_grid_nine", "x_cloud": "symbol_cloud_o",
+    "x_random": "control_arrow_random", "x_pencil": "symbol_pencil",
 }
 
 # a glyph given as a tuple: the first one the font has (a glyph still to be drawn falls back to a stand-in;
@@ -107,7 +117,11 @@ FIT_TO = {"system_battery_0": "system_battery_4"}
 # new icons that are also needed at 12 px (list rows, menu values)
 SMALL_EXTRA = ["x_star", "x_lock", "x_cog", "x_usb", "x_warn", "x_folder", "x_left", "x_right",
                "x_mixer", "x_pattern", "x_song", "x_motion", "x_motion_rec", "x_motion_del",
-               "x_hpf", "x_repeat", "x_reverse", "x_tstop", "x_freeze"]
+               "x_hpf", "x_repeat", "x_reverse", "x_tstop", "x_freeze",
+               "x_dice", "x_hit", "x_shuffle", "x_prev", "x_next", "x_unlock", "x_link", "x_brain", "x_ladder",
+               "x_cells", "x_pink", "x_circle", "x_pad", "x_lead", "x_kick", "x_rise", "x_books", "x_end",
+               "x_impulse", "x_piano", "x_warp", "x_node", "x_loop", "x_weight", "x_grid", "x_grid9", "x_cloud",
+               "x_random", "x_pencil"]
 # legacy names no screen draws (1.1): kept in the enum (assets/icons.json's order), not rasterised (no cell)
 NOT_DRAWN = ["tape"]
 

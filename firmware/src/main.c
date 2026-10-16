@@ -105,6 +105,7 @@ static void felucca_init(void)
     chain_defaults(&chain_config);
     for (i = 0; i < G_COUNT; i++)
         song.g[i] = GP[i].def;
+    gen_init();                               /* GEN: seeds and roles for the power-on music (gen.c) */
     undo_depth++;                             /* (no undo copy of the power-on loads) */
     fm6_init();                               /* every track's FM6 patch: the init voice */
     for (i = 0; i < NTRK; i++) {
@@ -305,6 +306,7 @@ static void fm1_main(void)
         felucca_dbg.home = ui.home;
         felucca_dbg.stage = 1;
         ui_input();
+        gen_tick();                                   /* GEN: LIVE tracks re-render at the phrase line (gen_ui.c) */
         settings_poll();                              /* queued settings save: only while stopped */
         autosave_poll();                              /* (1.2) the music, stopped and idle: project.c */
         felucca_dbg.stage = 2;

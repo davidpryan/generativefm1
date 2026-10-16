@@ -45,6 +45,7 @@ static uint32_t host_slots[3u * 0x14000u / 4u];          /* USR1..3 (zero: empty
 #define SMP_USER_XIP(k) ((const uint8_t *)host_slots + (k) * SMP_USER_SIZE)
 #define main hostsim_main
 #include "hostsim.c"
+#include "../firmware/src/gen.c"
 #undef main
 
 /* ------------------------------------------------------------ HAL stubs --- */
@@ -157,6 +158,7 @@ static struct { uint32_t stage; } felucca_dbg;
 #include "../firmware/src/ui_layer.c"
 #include "../firmware/src/upreset.c"
 #include "../firmware/src/project.c"
+#include "../firmware/src/gen_ui.c"
 
 static int check(const char *what, int ok)
 {
@@ -1585,10 +1587,11 @@ static int test_display_preferences(void)
                  settings.palette == 6 && T_BG == UI_PALETTES[6].bg && ux.light && ui.menu == 1 && !song.octave &&
                  memcmp(before, host_screen, sizeof before) && !memcmp(sounds, trk, sizeof sounds));
     turn(EN_K1, 1);
-    bad += check("COLOR KNOB 1 steps on to HI-CON, NIGHT (#50: true black), MONO (1.0.2: black and white), then wraps to GREY",
+    bad += check("COLOR KNOB 1 steps on to HI-CON, NIGHT (#50: true black), MONO (1.0.2: black and white), RISO (GEN), then wraps to GREY",
                  settings.palette == 7 && (turn(EN_K1, 1), settings.palette == 8u) && T_BG == 0u &&
                  str_eq(UI_PALETTES[8].name, "NIGHT") && (turn(EN_K1, 1), settings.palette == UI_BW_INDEX) &&
                  str_eq(UI_PALETTES[UI_BW_INDEX].name, "MONO") && T_BG == 0u && T_TEXT == 0xFFFFu &&
+                 (turn(EN_K1, 1), settings.palette == UI_RISO_INDEX) && str_eq(UI_PALETTES[UI_RISO_INDEX].name, "RISO") && ux.light &&
                  (turn(EN_K1, 1), settings.palette == UI_GREY_INDEX) && str_eq(UI_PALETTES[UI_GREY_INDEX].name, "GREY"));
     settings.lowcut = 2;
     ui.menu_sel = MI_LOWCUT;
@@ -1612,7 +1615,7 @@ static int test_display_preferences(void)
     k = ui.menu == 1 && settings.lowcut == 0u;         /* (OCT- at the first value: nothing, the menu stays) */
     press(B_HOME);
     bad += check("HOME leaves display preferences without changing musical state (OCT- no longer closes)",
-                 k && !ui.menu && settings.palette == UI_GREY_INDEX && !memcmp(sounds, trk, sizeof sounds));
+                 k && !ui.menu && settings.palette == UI_GREY_INDEX && !memcmp(sounds, trk, sizeof sounds));   /* (walked to GREY above) */
     return bad;
 }
 
@@ -3300,13 +3303,13 @@ static int test_layer(void)
             ok &= ui.home;
             btn_up(PB[i]); frame();
             ok &= !ui.home && cur_page()->fam == PF[i];
-            if (PB[i] == B_SCL || PB[i] == B_GLO || PB[i] == B_EDIT)
-                continue;                             /* (a layer of their own: held long is a peek) */
+            if (PB[i] == B_SCL || PB[i] == B_GLO || PB[i] == B_EDIT || PB[i] == B_ARP)
+                continue;                             /* (a layer of their own: held long is a peek; ARP: GEN) */
             ui_power_on();
             hold(PB[i]);                              /* (no layer of their own: a long press is a tap too) */
             ok &= !ui.home && cur_page()->fam == PF[i];
         }
-        bad += check("ENV LFO SCL ARP GLO EDIT act when let go, not on press (ENV LFO ARP held long: the same)", ok);
+        bad += check("ENV LFO SCL ARP GLO EDIT act when let go, not on press (ENV LFO held long: the same)", ok);
     }
     ui_power_on();
     go_page(GR_ROLL); my_steps(TSEL); ui.cursor = 0;
@@ -3749,6 +3752,7 @@ static int test_slices(void)
     int bad = 0, ok;
     uint32_t n, j, p0, k, note;
     ui_power_on();
+    memset(&sp, 0, sizeof sp);                       /* (the #63 soak may have left a marker on SLICES; a boot clears it) */
     set_engine_of(TSEL, 13u);                        /* SLICE CHOP: BREAK, 16 */
     bad += check("SLICES: SLICE's EDIT cycle EDIT 1 EDIT 2 SLICES VOICE VOICE 2 VOICE 3 EDIT 1", engine_cycle(CYC_S, NELEM(CYC_S)));
     go_page(GR_SLICES); frame();
@@ -8421,23 +8425,31 @@ static int test_style(void)
     const uint32_t rule = 26u * 240u + 120u;           /* (the rule under the header: ui_draw.c draw_rules) */
     ui_power_on();
     frame();
-    ok = ui_style == ST_FLAT && ux.style == ST_FLAT && ux.surf != ux.bg;
+    {   /* GEN: no saved settings (a fresh start, panel.c settings_init): RISO palette and style */
+        uint32_t m = settings.magic; settings.magic = 0; settings_init(); frame();
+        ok = settings.palette == UI_RISO_INDEX && ui_style == ST_RISO && ux.style == ST_RISO && ux.surf != ux.bg;
+        settings.magic = m;
+    }
+    ui_style = ST_FLAT; settings.palette = UI_GREY_INDEX; palette_set(UI_GREY_INDEX); frame();
+    ok &= ui_style == ST_FLAT && ux.style == ST_FLAT && ux.surf != ux.bg;
     ui.force = 1; frame();
     ok &= host_screen[rule] == swap16(T_BG);
     hold(B_HOME); ui.menu_sel = MI_STYLE;
     ok &= ui.menu == 1u && str_eq(MI_NAME[MI_STYLE], "STYLE");
     turn(EN_K1, 1); ok &= ui_style == ST_LINE && ux.style == ST_LINE && ux.surf == ux.bg;
-    turn(EN_K1, 1); ok &= ui_style == ST_LINE;
+    turn(EN_K1, 1); ok &= ui_style == ST_RISO && ux.style == ST_RISO && ux.surf != ux.bg;   /* (GEN: the third style) */
+    turn(EN_K1, 1); ok &= ui_style == ST_RISO;
+    turn(EN_K1, -1); ok &= ui_style == ST_LINE;
     turn(EN_K1, -1); ok &= ui_style == ST_FLAT;
     turn(EN_K1, -1); ok &= ui_style == ST_FLAT;
     press(B_OCTUP); ok &= ui_style == ST_LINE && ui.menu == 1u;
-    press(B_OCTUP); ok &= ui_style == ST_LINE;
-    press(B_OCTDN); ok &= ui_style == ST_FLAT && ux.style == ST_FLAT && ux.surf != ux.bg && ui.menu == 1u;
+    press(B_OCTUP); ok &= ui_style == ST_RISO;
+    press(B_OCTDN); press(B_OCTDN); ok &= ui_style == ST_FLAT && ux.style == ST_FLAT && ux.surf != ux.bg && ui.menu == 1u;
     press(B_OCTUP); ok &= ui_style == ST_LINE;
     ok &= !(ui_prefs & 0xFFu) && settings_leds == LEDS_DIM;   /* (no other setting moved) */
     hold(B_HOME);
     ok &= !ui.menu && ux.style == ST_LINE && host_screen[rule] == swap16(T_RULE);
-    bad += check("MENU > STYLE: FLAT by default, KNOB 1 / OCT-+ FLAT / LINE, LINE drawn (rules, no SURF)", ok);
+    bad += check("MENU > STYLE: RISO by default (GEN), KNOB 1 / OCT-+ FLAT / LINE / RISO, LINE drawn (rules, no SURF)", ok);
     {
         persist_t p, q;
         settings_export(&p);
@@ -8457,6 +8469,9 @@ static int test_style(void)
         ok &= ux.style == ST_LINE;
         ui_style = 2; frame();                          /* (a live PIXEL byte, a restore: LINE) */
         ok &= ui_style == ST_LINE && ux.style == ST_LINE;
+        p.favorites.factory[15][29] = ST_RISO;          /* GEN: RISO is kept as it is */
+        ok &= settings_import(&p, (int)sizeof p) == 1 && ui_style == ST_RISO && p.favorites.factory[15][29] == ST_RISO;
+        frame(); ok &= ux.style == ST_RISO;
         ui_style = ST_LINE;
         settings_export(&p);
         memset(&p.favorites, 0, sizeof p.favorites);
@@ -8464,7 +8479,7 @@ static int test_style(void)
         ok &= settings_import(&p, (int)(sizeof p - sizeof p.favorites)) == 2 && ui_style == ST_FLAT;
         frame();
         ok &= ux.style == ST_FLAT && ux.surf != ux.bg;
-        bad += check("  STYLE saved with the settings and read back; older settings and unknown values: FLAT, PIXEL: LINE (idempotent)", ok);
+        bad += check("  STYLE saved with the settings and read back; older settings and unknown values: FLAT, PIXEL: LINE, RISO kept (idempotent)", ok);
     }
     ui_power_on(); frame();
     return bad;
@@ -9831,6 +9846,113 @@ static int test_edit_quick_actions(void)
     return bad;
 }
 
+
+/* GEN (gen.c, gen_ui.c): the ARP-held layer, its keys, COMMIT, SONG, the pages, the state with the project */
+static uint32_t wkey(uint32_t place) { uint32_t k; for (k = 0; k < 27u; k++) if (!key_black(k) && key_place(k) == place) return k; return 0; }
+static uint32_t gt_hits(const track_t *t) { uint32_t s, n = 0; for (s = 0; s < NSTEP; s++) if (t->step[s].time == ST_NOTE) n++; return n; }
+static int test_gen(void)
+{
+    int bad = 0;
+    uint32_t i, ok, h1, h2, before;
+    ui_power_on();
+    set_engine_of(&trk[0], ENGI_DRUM); trk[0].engine = trk[0].eng_req;
+    for (i = 0; i < NTRK; i++) track_defaults_steps(&trk[i]);
+    gen_init();
+    /* the layer: ARP held opens GEN, its map; let go, nothing else happened */
+    btn_down(B_ARP); frames(700);
+    bad += check("GEN: ARP held opens the GEN layer", ui.layer == LAYER_GEN && layer_open() == LAYER_GEN);
+    btn_up(B_ARP); frame();
+    bad += check("GEN: let go, the page as before (a peek)", ui.home && ui.layer == LAYER_NONE);
+    /* ROLL on T1 (DRUMS): steps appear; SAVE held undoes them */
+    song.sel = 0;
+    btn_down(B_ARP); frames(700);
+    key_down(wkey(0)); frame(); key_up(wkey(0)); frame();
+    h1 = gt_hits(&trk[0]);
+    bad += check("GEN: key 1 ROLL on a DRUM track writes hits", h1 > 8u && h1 < 64u);
+    key_down(wkey(0)); frame(); key_up(wkey(0)); frame();
+    bad += check("GEN: ROLL again: a different pattern", gt_hits(&trk[0]) != h1 || memcmp(trk[0].step, tl_open.step, sizeof tl_open.step) != 0);
+    h2 = gt_hits(&trk[0]);
+    key_down(wkey(4)); frame(); key_up(wkey(4)); frame();   /* PREV */
+    bad += check("GEN: PREV brings the roll before back", gt_hits(&trk[0]) == h1);
+    key_down(wkey(5)); frame(); key_up(wkey(5)); frame();   /* NEXT */
+    bad += check("GEN: NEXT re-does it", gt_hits(&trk[0]) == h2);
+    bad += check("GEN: NEXT says so in the header", msg_is("NEXT ROLL T1"));
+    key_down(wkey(6)); frame(); key_up(wkey(6)); frame();   /* LOCK */
+    bad += check("GEN: LOCK says LOCKED T1", msg_is("LOCKED T1"));
+    key_down(wkey(0)); frame(); key_up(wkey(0)); frame();
+    bad += check("GEN: LOCK: ROLL leaves the track alone, and says why", (gen.t[0].flags & GF_LOCK) && gt_hits(&trk[0]) == h2 && msg_is("LOCKED: UNLOCK FIRST"));
+    key_down(wkey(6)); frame(); key_up(wkey(6)); frame();
+    /* OCT- puts the track back as the layer opened: empty */
+    press(B_OCTDN);
+    bad += check("GEN: OCT- puts the track back as the layer opened (empty)", gt_hits(&trk[0]) == 0u);
+    btn_up(B_ARP); frame();
+    /* a pitched track: ROLL writes notes in A minor, pushed to SCL; OCT+ COMMIT writes locks within the budget */
+    song.sel = 1; trk[1].p[P_ROOT] = 0; trk[1].p[P_SCALE] = 1;
+    btn_down(B_ARP); frames(700);
+    key_down(wkey(11)); frame(); key_up(wkey(11)); frame();   /* SEC D: BASS plays in the DROP (INTRO masks it out) */
+    key_down(wkey(0)); frame(); key_up(wkey(0)); frame();
+    ok = gt_hits(&trk[1]) > 0u && trk[1].p[P_ROOT] == 9 && trk[1].p[P_SCALE] == 2;
+    for (i = 0; i < NSTEP; i++) if (trk[1].step[i].time == ST_NOTE) ok &= ((SCALE_MASK[2] >> ((trk[1].step[i].note[0] + 120u - 9u) % 12u)) & 1u) != 0u;
+    bad += check("GEN: BASS ROLL: notes in the project's key, ROOT / SCALE pushed to the track", ok);
+    /* black key 9 BREED: new seeds, a crossover of this roll's and the last; black key 10 LEARN: MARKOV learns the
+     * track as the layer opened (empty here: a table of zeros, and the message) */
+    { uint32_t a = gen.t[1].seed_rhythm, b; key_down(wkey(0)); frame(); key_up(wkey(0)); frame(); b = gen.t[1].seed_rhythm;
+      key_down(black(8)); frame(); key_up(black(8)); frame();
+      bad += check("GEN: black key 9 BREED crosses this roll's seeds with the last roll's", gen.t[1].seed_rhythm != a && gen.t[1].seed_rhythm != b && ((gen.t[1].seed_rhythm ^ a) & (gen.t[1].seed_rhythm ^ b)) == 0u);
+      key_down(black(9)); frame(); key_up(black(9)); frame();
+      bad += check("GEN: black key 10 LEARN says LEARNED", ui.msg_t && str_eq(ui.msg, "LEARNED")); }
+    before = motion.count;
+    press(B_OCTUP);
+    bad += check("GEN: OCT+ COMMIT writes its locks, within the budget, and says so", motion.count > before && motion.count - before <= gen_lock_budget(GR_BASS) && ui.msg_t && str_len(ui.msg) > 6u && ui.msg[0] == 'L');
+    press(B_OCTUP);
+    bad += check("GEN: COMMIT again replaces its own locks, never adds", motion.count - before <= gen_lock_budget(GR_BASS));
+    btn_up(B_ARP); frame();
+    /* the pages: ARP taps go ARP, ARP 2, GEN 1, GEN 2, HARMONY; KNOB 1 on HARMONY moves ROOT */
+    ui_power_on(); gen_init();
+    press(B_ARP); frames(320); press(B_ARP); frames(320); press(B_ARP); frames(320);
+    bad += check("GEN: the third tap of ARP opens GEN ROLE", !ui.home && str_eq(cur_page()->title, "GEN ROLE"));
+    press(B_ARP); frames(320); press(B_ARP); frames(320);
+    bad += check("GEN: .. then GEN 2, HARMONY", str_eq(cur_page()->title, "HARMONY"));
+    press(B_ARP); frames(320);
+    bad += check("GEN: .. then GEN 3, the method page; KNOB 1 picks EUCLID on a DRUM track", str_eq(cur_page()->title, "GEN METHOD") && (song.sel = 0, turn(EN_K1, 1), gen.t[0].method == GMD_EUCLID));
+    turn(EN_K1, 3);
+    bad += check("GEN: .. KNOB 1 on to TURING; GEN 3's card shows it and FLIP", gen.t[0].method == GMD_TURING && str_eq(GEN_METHOD_NAME[GR_DRUMS][gen.t[0].method], "TURING") && str_eq(GEN_MP_NAME[GR_DRUMS][gen.t[0].method][0], "FLIP"));
+    turn(EN_K1, 9);
+    bad += check("GEN: .. and stops at the last method the role has (CALL)", gen.t[0].method == GMD_CALL);
+    press(B_ARP); frames(320); press(B_ARP); frames(320); press(B_ARP); frames(320); press(B_ARP); frames(320); press(B_ARP); frames(320); press(B_ARP); frames(320);
+    h1 = gen.p.root; turn(EN_K1, 2);
+    bad += check("GEN: HARMONY KNOB 1 moves the project's ROOT", gen.p.root == (h1 + 2u) % 12u || gen.p.root == 11u);
+    /* SONG: the four slots written, the chain set; CF_GEN_SONG asked over used slots */
+    ui_power_on(); gen_init();
+    set_engine_of(&trk[0], ENGI_DRUM); trk[0].engine = trk[0].eng_req;
+    song.sel = 0;
+    btn_down(B_ARP); frames(700);
+    key_down(wkey(12)); frame(); key_up(wkey(12)); frame();
+    if (ui.confirm) press(B_OCTUP);
+    btn_up(B_ARP); frame();
+    ok = chain_config.count == 7u && msg_is("SONG A-D WRITTEN");
+    for (i = 0; i < 4u; i++) ok &= proj_import(&proj_scratch, &proj_slot[i], sizeof(project_store_t)) != 0;
+    bad += check("GEN: SONG writes slots A-D and a 7-section chain", ok);
+    /* the SONG page (after GEN 3): FORM picks the chain's shape, CUSTOM keeps what is there, TAIL PEEL adds rows */
+    ui_power_on(); gen_init(); set_engine_of(&trk[0], ENGI_DRUM); trk[0].engine = trk[0].eng_req; song.sel = 0;
+    press(B_ARP); frames(320); press(B_ARP); frames(320); press(B_ARP); frames(320); press(B_ARP); frames(320); press(B_ARP); frames(320); press(B_ARP); frames(320); press(B_ARP); frames(320);
+    bad += check("GEN: the tap after GEN 3 opens GEN FORM; KNOB 1 picks the form AABA", str_eq(cur_page()->title, "GEN FORM") && (turn(EN_K1, 2), gen.p.form == GFM_AABA));
+    turn(EN_K4, 2);
+    btn_down(B_ARP); frames(700); key_down(wkey(12)); frame(); key_up(wkey(12)); frame(); if (ui.confirm) press(B_OCTUP); btn_up(B_ARP); frame();
+    bad += check("GEN: SONG writes AABA with PEEL: 5 + 2 rows, the last two with the LEAD silent", chain_config.count == 7u && chain_config.row[5].slot[3] == CHAIN_SILENT && chain_config.row[6].slot[2] == CHAIN_SILENT && chain_config.row[0].slot[0] == GS_INTRO);
+    chain_config.count = 2; chain_config.row[0].slot[0] = 3; chain_config.row[0].repeat = 9;
+    gen.p.form = GFM_CUSTOM;
+    btn_down(B_ARP); frames(700); key_down(wkey(12)); frame(); key_up(wkey(12)); frame(); if (ui.confirm) press(B_OCTUP); btn_up(B_ARP); frame();
+    bad += check("GEN: SONG on FORM CUSTOM re-renders the slots and leaves the chain as built", chain_config.count == 2u && chain_config.row[0].repeat == 9u && msg_is("SONG A-D RE-RENDERED"));
+    /* the state travels with the project: ROLL, save, change, load: the seeds back */
+    h1 = gen.t[0].seed_rhythm;
+    project_save(2);
+    gen.t[0].seed_rhythm ^= 0x5555u;
+    project_load(2);
+    bad += check("GEN: the slot's GEN state loads with the project", gen.t[0].seed_rhythm == h1);
+    return bad;
+}
+
 int main(void)
 {
     setvbuf(stdout, NULL, _IONBF, 0);
@@ -9917,6 +10039,7 @@ int main(void)
     bad += test_home_tracks();
     bad += test_fx_map_columns();
     bad += test_help();
+    bad += test_gen();
     bad += test_no_flash();
 #if FELUCCA_FM4
     bad += test_fm_charts();                        /* (DIGITAL's charts: built with FELUCCA_FM4=1 only) */

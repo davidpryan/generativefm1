@@ -305,6 +305,8 @@ if [ -f build/gen/felucca_tables.h ]; then
     fi
     $CC -O1 -w -Ibuild/gen -o "$OUT/settings_test" tests/settings_test.c
     run "settings: PER1..PER4 migration, palette ids and preference preservation" "$OUT/settings_test"
+    $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/gen_test" tests/gen_test.c -lm
+    run "GEN: determinism, monotone DENSITY, the voice / note / lane / lock budgets, the key, roles, sections, history; the sections as MIDI" "$OUT/gen_test" build/gen_demo
     $CC -w -Ibuild/gen -Ifirmware/src -o "$OUT/ui_test" tests/ui_test.c -lm
     run "UI: sounds keep steps, undo, recording, MIDI overflow, pending saves, panel recovery, drum grid, song chain, GREY gray, MONO neutral" "$OUT/ui_test"
     $CC -w -DFELUCCA_CPU2=0 -Ibuild/gen -Ifirmware/src -o "$OUT/ui_test_c1" tests/ui_test.c -lm

@@ -92,6 +92,15 @@ static struct {
  * Selections, accents, keys and gauges keep their fills in every style */
 #define ST_FLAT 0u
 #define ST_LINE 1u
+#define ST_RISO 3u                   /* GEN: a risograph print: every box outlined in an ink with a 1 px misregistered
+                                      * shadow in the next ink, the four knob cards and the layer rows each their own
+                                      * ink (UI_RISO_INK); 3, as stored (ui.c ui_style: 2 was the retired PIXEL) */
+/* the drum set of ST_RISO: orange, blue, green, violet (the four columns), teal, pink, yellow (fills only), black;
+ * dense prints of the inks, so text in them clears 3.5:1 on the RISO palette's paper (tools/gen_ui_palettes.py) */
+#define UI_RISO_INK_N 8u
+static const uint16_t UI_RISO_INK[UI_RISO_INK_N] = {0xAA23, 0x231A, 0x1BA7, 0x79FA, 0x138D, 0xB1AE, 0xF623, 0x18C3};
+static uint16_t ux_pen = 0, ux_pen2 = 0;   /* ST_RISO: the ink a box is outlined in, and its shadow's (0: the text colour) */
+static uint32_t ux_col_ink(uint32_t c) { return UI_RISO_INK[c & 3u]; }
 #define T_RULE ux.dim            /* LINE: the dividers (DIM: visible on NIGHT, GREY, MONO and PAPER, quieter than labels) */
 #define T_BG ux.bg               /* background */
 #define T_SURF ux.surf           /* dialogs, menu rows, mixer strips */
@@ -152,7 +161,7 @@ static void palette_set(uint32_t i)
     const ui_pal_t *p = cust ? &ux_cust : &UI_PALETTES[i % NPALETTES];
     i %= NPALETTES;
     ux.mono = !cust && i == UI_GREY_INDEX;
-    ux.bg = p->bg; ux.surf = ux.style ? p->bg : p->surf; ux.text = p->text; ux.theme = p->theme; ux.accent = p->accent;
+    ux.bg = p->bg; ux.surf = ux.style == ST_LINE ? p->bg : p->surf;   /* (LINE: no surfaces; RISO keeps them) */ ux.text = p->text; ux.theme = p->theme; ux.accent = p->accent;
     ux.mid = ux_mix(p->bg, p->text, UI_MID_PCT);
     ux.dim = ux_mix(p->bg, p->text, UI_DIM_PCT);
     ux.line = ux_mix(p->bg, p->text, UI_LINE_PCT);
@@ -306,6 +315,17 @@ static void cv_rrect(int32_t x, int32_t y, int32_t w, int32_t h, int32_t r, uint
     GFX_HOOK_CELL(x, y + cv_oy, x + w, y + h + cv_oy);   /* (the lint: what is drawn on it stays inside it) */
     if (r < 0) r = -r;                           /* (-r: rounded in every style: a keycap-like cushion) */
     else if (ux.style == ST_LINE) r = 0;         /* LINE: square cursors, selections and fills (FLAT: rounded) */
+    else if (ux.style == ST_RISO && c != under && w > 6 && h > 6) {   /* RISO: a printed box: fill, the shadow ink 1 px off, the ink's outline */
+        uint16_t pen = ux_pen ? ux_pen : ux.text, pen2 = ux_pen2 ? ux_pen2 : ux.accent;
+        if (r > 2) r = 2;
+        cv_rect(x + 1, y + 1, w - 1, 2, pen2); cv_rect(x + 1, y + 1, 2, h - 1, pen2);
+        cv_rect(x + 1, y + h - 1, w - 1, 1, pen2); cv_rect(x + w - 1, y + 1, 1, h - 1, pen2);
+        cv_rect(x, y, w, h, c);
+        if (c == pen) return;                    /* a solid ink block: no outline needed */
+        cv_rect(x, y, w, 2, pen); cv_rect(x, y + h - 2, w, 2, pen); cv_rect(x, y, 2, h, pen); cv_rect(x + w - 2, y, 2, h, pen);
+        cv_rect(x + 1, y + 1, w - 2, 1, pen2 == pen ? pen : ux_mix(pen, pen2, 50));   /* the misregistered edge */
+        return;
+    }
     if (r > w / 2) r = w / 2;
     if (r > h / 2) r = h / 2;
     if (r < 1) {

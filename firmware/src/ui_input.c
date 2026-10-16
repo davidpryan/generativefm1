@@ -983,6 +983,10 @@ static void edit_param(uint32_t slot, int32_t steps)
         tracks_edit(slot, steps);
         return;
     }
+    if (pg->scope == SC_GEN) {
+        gen_edit(pg, slot, steps);
+        return;
+    }
     if (pg->graph == GR_BROWSE) {                         /* KNOB 1: one preset, KNOB 2: the next / previous engine */
         if (slot == 0u) {
             preset_step(steps);
@@ -1636,6 +1640,8 @@ static void ui_input(void)
                     if (ui.song_row > chain_config.count) ui.song_row = chain_config.count;
                     ui_message("SECTION DELETED");
                 }
+            } else if (kind == CF_GEN_SONG) {
+                gen_song_do();
             } else if (kind == CF_CLEAR_SONG) {
                 if (!chain_busy()) { chain_defaults(&chain_config); ui.song_row = 0; ui_message("SONG CLEARED"); }
             } else if (kind == CF_INIT_SOUND) {
@@ -1692,6 +1698,7 @@ static void ui_input(void)
         case B_GLO:
         case B_SCL:
         case B_EDIT:
+        case B_ARP:                                     /* GEN's layer (gen_ui.c) */
         case B_HOME:
             break;
         case B_OCTDN:
@@ -1793,7 +1800,7 @@ static void ui_input(void)
             ui.hot_t = 40;
             continue;
         }
-        if (ui.home || pg->scope == SC_STEP || pg->scope == SC_TRK || page_desc(pg, k, &hv) ||
+        if (ui.home || pg->scope == SC_STEP || pg->scope == SC_TRK || pg->scope == SC_GEN || page_desc(pg, k, &hv) ||
             ((pg->graph == GR_USER || pg->graph == GR_MOD || pg->graph == GR_PATS) && k == 0u)
             || pg->graph == GR_SONG || (pg->graph == GR_SLICES && k < 2u) || fop_page(pg->graph)) {   /* (not an empty
                                                                                                           * column) */

@@ -64,8 +64,9 @@ static const layer_t LAYERS[LAYER_N] = {
     {B_EDIT, LK_SET, FAM_HOME, "[EDIT] SET", {{KC_KEYS, "ENGINE"}, {KC_OCTDN, "UNDO"}, {KC_EDIT, "DONE"}}},
     {B_SEQ, LK_SET, FAM_SEQ, "[SEQ] TOOLS", {{KC_KEYS, "TOOLS"}, {KC_OCTDN, "UNDO"}, {KC_SEQ, "DONE"}}},
     {B_REC, LK_SET, FAM_HOME, "[REC] SET", {{KC_KEYS, "RECORDING"}, {KC_OCTDN, "UNDO"}, {KC_REC, "DONE"}}},
+    {B_ARP, LK_SET, FAM_HOME, "[GEN] SET", {{KC_KEYS, "GENERATE"}, {KC_OCTUP, "COMMIT"}, {KC_ARP, "DONE"}}},   /* GEN (gen_ui.c) */
 };
-static const uint8_t LY_KC[LAYER_N] = {0, KC_FX, KC_GLO, KC_SCL, KC_EDIT, KC_SEQ, KC_REC};
+static const uint8_t LY_KC[LAYER_N] = {0, KC_FX, KC_GLO, KC_SCL, KC_EDIT, KC_SEQ, KC_REC, KC_ARP};
 /* SCL's knobs: the key and its chord (cur_page() while the layer edits or draws them: page_over) */
 static const page_t LY_SCL = {"SCL", FAM_SCL, SC_TRACK, GR_SCALE, {P_ROOT, P_SCALE, P_CHRD, P_VOIC}};
 /* SEQ TOOLS' knobs: LEN DIV SWING GATE (the length the tools work in; up to 1.1.5 the PATTERN page's) */
@@ -239,7 +240,7 @@ static void layer_opened(uint32_t l)
     lys.trk = song.sel;
     lys.loaded = 0;
     lys.cook = 0;
-    if (l == LAYER_SEQ || l == LAYER_REC) {             /* the track as it is now (OCT-) */
+    if (l == LAYER_SEQ || l == LAYER_REC || l == LAYER_GEN) {   /* the track as it is now (OCT-) */
         memcpy(tl_open.step, TSEL->step, sizeof tl_open.step);
         motion_snapshot_track(TSEL, &tl_open.mo);
     }
@@ -668,6 +669,8 @@ static void layer_key(uint32_t l, uint32_t k)
     } else if (l == LAYER_REC) {
         if (!key_black(k) && p < 4u)
             rec_key(p);
+    } else if (l == LAYER_GEN) {
+        gen_layer_key(k, p);
     } else if (l == LAYER_SEQ) {
         if (!key_black(k))
             tools_key(p);
@@ -686,6 +689,8 @@ static void layer_keys(uint32_t keys)
             layer_key(l, k);
     if (lys.eqh)
         eqa_release();
+    if ((layer_open() ? layer_open() : ui.layer) == LAYER_GEN)
+        gen_layer_held(kb_layer);               /* (FILL, ALL while held) */
     lys.solo &= kb_layer;
     lys.fill &= kb_layer;
     if (seq_fill != (lys.fill != 0u)) {                 /* (1.5.5: the steps' FILL / !FILL from the next step) */
@@ -722,6 +727,8 @@ static void layer_knob(uint32_t k, int32_t s)
     } else if (l == LAYER_REC) {                        /* CLICK, COUNT-IN, LEVEL (KNOB 4: none) */
         if (k < 3u)
             rec_set(k, (uint32_t)clamp((int32_t)rp_get(RL_F[k]) + s, 0, 2));
+    } else if (l == LAYER_GEN) {                        /* the role's four macros (gen_ui.c) */
+        gen_edit(0, k, s);
     } else if (l == LAYER_SEQ && eu.on) {               /* EUCLID: HITS STEPS ROT (KNOB 4: none) */
         eu_knob(TSEL, k, s);
     } else if (l) {                                     /* the page's knobs, wherever the page is */
@@ -774,6 +781,17 @@ static uint32_t layer_oct(uint32_t pressed, uint32_t oct)
         ui_message(mine & 2u ? "EUCLID APPLIED" : "EUCLID CANCELLED");
         ui.force = 1;
         mine = 0;
+    }
+    if ((mine & 2u) && lys.l == LAYER_GEN) {            /* GEN: OCT+ is COMMIT (gen_ui.c) */
+        gen_commit();
+        ui.force = 1;
+        mine &= ~2u;
+    }
+    if ((mine & 1u) && lys.l == LAYER_GEN) {            /* GEN: OCT-: the track as the layer opened */
+        track_t *t = &trk[lys.trk % NTRK];
+        if (chain_busy()) { ui_message("STOP TO EDIT"); }
+        else { tl_undo_take(t); memcpy(t->step, tl_open.step, sizeof t->step); if (motion_replace_track(t, &tl_open.mo)) motion_full = 1; ui_message("GEN PUT BACK"); }
+        mine &= ~1u;
     }
     if (mine & 1u) {                                    /* OCT-: back to when it opened */
         if (lys.l == LAYER_FX) {                        /* (FX LATCH) every effect and macro off */
@@ -939,6 +957,10 @@ static void lcell(int32_t x, int32_t y, int32_t h, const char *note, uint32_t ic
                   uint32_t st, int tri)
 {
     uint16_t ink, fill = lc_fill(st, &ink), idle = fill == T_RAISE || ((st & LS_ALT) && fill == lc_alt());
+    if (ux.style == ST_RISO && ux_pen) {              /* RISO: a lit cell is a solid block of its row's ink, paper text; idle: paper, ink text */
+        if (fill == T_SEL || fill == T_THEME || fill == T_ACCENT) { fill = ux_pen; ink = T_BG; }
+        else if (fill == T_RAISE || fill == lc_alt()) { fill = T_SURF; ink = ux_pen; idle = 0; }
+    }
     fill = lc_box(x, y, LC_W, h, fill);
     if (note)
         cv_text_on(x + 5, y + 3, &AF_S, note, idle ? T_MID : ink, fill);
@@ -1166,6 +1188,10 @@ static void layer_cards(uint32_t l)
     char val[12];
     const char *unit;
     uint32_t c;
+    if (l == LAYER_GEN) {                               /* the role's macros (gen_ui.c) */
+        gen_cards(0);
+        return;
+    }
     if (l == LAYER_FX) {                                /* FILTER CRUSH THROW DEPTH */
         int32_t m = perf_k[0];
         fmt_int(val, m < 0 ? -m : m);
@@ -1245,6 +1271,8 @@ static void draw_layer(void)
                (uint32_t)(trk[0].p[P_MUTE] | trk[1].p[P_MUTE] << 1 | trk[2].p[P_MUTE] << 2 | trk[3].p[P_MUTE] << 3) * 131u;
     else if (l == LAYER_SCL)
         sig += (uint32_t)TSEL->p[P_SCALE] * 31u;
+    else if (l == LAYER_GEN)
+        sig += gen_layer_sig();
     else if (l == LAYER_REC)
         sig += (uint32_t)ui_rec_prefs * 31u + (uint32_t)chain_busy() * 3u + (uint32_t)rec_clearable() * 5u + song.sel * 977u;
     else if (l == LAYER_SEQ)
@@ -1268,6 +1296,8 @@ static void draw_layer(void)
             layer_seq();
         else if (l == LAYER_REC)
             layer_rec();
+        else if (l == LAYER_GEN)
+            gen_layer_map();
         else
             layer_edit();
         cv_blit(0, Y_GRAPH);

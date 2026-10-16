@@ -49,6 +49,9 @@ PALETTES = [
     ("NIGHT",  (0, 0, 0),       (0, 24, 10),     (150, 230, 170), (56, 220, 100),  (255, 255, 255)),
     # 1.0.2: black and white (the derived tokens are set, not blended: bw()); the old MONO is GREY (id 0)
     ("MONO",   (0, 0, 0),       (0, 0, 0),       (255, 255, 255), (255, 255, 255), (255, 255, 255)),
+    # GEN: RISO, a risograph print: paper ground, black text, dense fluoro orange for values, pink for the hot thing;
+    # MENU > STYLE RISO draws its ink outlines and the per-column inks (gfx.c ST_RISO, UI_RISO_INK)
+    ("RISO",   (246, 241, 228), (236, 230, 212), (27, 27, 27),    (135, 56, 22),   (144, 44, 95)),
 ]
 BW = "MONO"
 BW_GREY = (82, 82, 82)             # MONO's one mid grey (RGB565 10/20/10): DIM LINE RAISE LANE
@@ -186,6 +189,7 @@ def main():
             out.append(f'    {{"{p[0]}", ' + ", ".join(f"0x{x:04x}" for x in v) + "},")
         out += ["};", f"#define UI_NPALETTES {len(PALETTES)}u", "#define UI_GREY_INDEX 0u",
                 f"#define UI_BW_INDEX {names.index(BW)}u          /* MONO: black and white (src/gfx.c palette_set) */",
+                f"#define UI_RISO_INDEX {names.index('RISO')}u        /* RISO: GEN's print look; the power-on default with STYLE RISO (src/panel.c) */",
                 f"#define UI_BW_GREY 0x{to565(BW_GREY):04x}u          /* MONO's one grey: DIM LINE RAISE LANE */",
                 f"#define UI_PAL_TAG {PAL_TAG}u          /* stored id = UI_PAL_TAG + index; below 20: an old id */"]
         out += [f"#define UI_{k}_PCT {v}" for k, v in PCT.items()] + [f"#define UI_RAISE_PCT {RAISE_PCT}   /* SURF -> TEXT */"]

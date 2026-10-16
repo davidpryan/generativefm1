@@ -49,6 +49,11 @@ static const struct { const char *title, *hint; } HELP_PAGE[] = {
     {"TOOLS", "[K1]CLEAR[K2]INIT, CLEAN[OCT+]DO"},   /* (1.5.5, #190: KNOB 2 on, CLEAN INIT) */
     {"ARP", "[K1]MODE[KEYS]CHORD[ARP]ARP 2"},
     {"ARP 2", "[K3]LATCH[K4]ORDER[ARP]ARP"},
+    {"GEN ROLE", "[K1]ROLE[K2]STYLE[ARP]HOLD: GEN"},
+    {"GEN SHAPE", "[K2]DRIFT[K3]ENERGY[K4]FILL"},
+    {"HARMONY", "[K1]KEY[K3]CHORDS[K4]RATE"},
+    {"GEN METHOD", "[K1]METHOD[K2]P1[K3]P2"},
+    {"GEN FORM", "[K1]FORM[K2]LEN[K4]TAIL"},
     {"STEP", "[KEYS]WRITE[K1]STEP[SEQ]RATCH"},   /* (1.5.1: SEQ to DETAIL) */
     {"DETAIL", "[PRESETS]STEP[K1]CHANCE, 1:4, FILL"},   /* (1.5.5: the conditions past 100 %) */
     {"AUTOMATION", "[K1]ROW[OCT+]DO[EDIT]DELETE"},
@@ -62,6 +67,7 @@ static const struct { const char *title, *hint; } HELP_PAGE[] = {
 static const char *const HELP_LAYER[LAYER_N] = {
     "", "[KEYS]BLACK: MUTES[FX]2 TAPS: LOCK", "[KEYS]SOLO MUTE FILL TAP[K1-4]LEVELS", "[KEYS]ROOT[K1-4]ROOT SCL CHORD",
     "[K1]ENGINE[K2]SOUND[K3]FAV", "[K1]LENGTH[K3]SWING[K4]GATE", "[K1]CLICK[K2]COUNT-IN[K3]LEVEL",
+    "[KEYS]ROLL SONG[OCT+]COMMIT",
 };
 
 static const char H_EUCLID[] = "[K1]HITS[K2]STEPS[K3]ROTATE";   /* SEQ TOOLS' EUCLID open (1.5.5) */

@@ -86,6 +86,7 @@
 #endif
 #include "song_chain.c"
 #include "seq.c"
+#include "gen.c"                 /* GEN: the generative sequencer's core (gen_ui.c: its panel, after ui.c) */
 #include "audio.c"
 
 /* -------------------------------------------------------------- UI --- */
@@ -107,6 +108,7 @@
 #endif
 #include "upreset.c"             /* user presets (RAM mirror; flash with FELUCCA_FLASH) */
 #include "project.c"
+#include "gen_ui.c"              /* GEN: the ARP-held layer, its pages, COMMIT, SONG, its flash object */
 #if FELUCCA_OTA
 #include "ota.c"
 #include "ota_hw.c"
